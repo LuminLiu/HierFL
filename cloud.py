@@ -32,15 +32,6 @@ class Cloud():
         return None
 
     def aggregate(self, args):
-        """
-        I think the problem may lie in this...
-        :param args:
-        :return:
-        """
-        # print('Average Old')
-        # first make the state_dict and sample into num
-        # The following code may cause some problem? I am not sure whether values keeps the values int the original order
-        # But when the data sample number is the same,  this is not a problem
         received_dict = [dict for dict in self.receiver_buffer.values()]
         sample_num = [snum for snum in self.sample_registration.values()]
         self.shared_state_dict = average_weights(w=received_dict,

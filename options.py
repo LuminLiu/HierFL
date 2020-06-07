@@ -166,34 +166,7 @@ def args_parser():
         default=0,
         type=int
     )
-    # parser.add_argument(
-    #     '--aggregation',
-    #     default='average',
-    #     type=str,
-    #     help='aggregation algorithm'
-    # )
 
-    # parser.add_argument(
-    #     '--test_size',
-    #     type = int,
-    #     default=1000,
-    #     help='valid when iid=-4, control the size of the test set'
-    # )
-
-    ## options for the finetine
-
-    # parser.add_argument(
-    #     '--fine_tune_epoch',
-    #     default=50,
-    #     type=int,
-    #     help = 'num of epochs of finetuning the model'
-    # )
-    # parser.add_argument(
-    #     '--fine_tune_sample',
-    #     default=100,
-    #     type= int,
-    #     help='number of samples of finetuning the model'
-    # )
 
     args = parser.parse_args()
     args.cuda = torch.cuda.is_available()

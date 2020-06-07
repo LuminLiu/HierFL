@@ -1,10 +1,8 @@
 # Interface between models and the clients
 # Include intialization, training for one iteration and test function
 
-from models.cifar_cnn_pytorchtutorial import cifar_cnn_pytorchtutorial, cifar_cnn_pytorchtutorial_specific, cifar_cnn_pytorchtutorial_shared
 from models.cifar_cnn_3conv_layer import cifar_cnn_3conv, cifar_cnn_3conv_specific, cifar_cnn_3conv_shared
 from models.cifar_resnet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
-from models.femnist_cnn import femnist_cnn_leaf, femnist_cnn_leaf_shared, femnist_cnn_leaf_specific
 from models.mnist_cnn import mnist_lenet
 from models.mnist_logistic import LogisticRegression
 import torch.optim as optim
@@ -95,42 +93,19 @@ class MTL_Model(object):
         return output_batch
 
     def update_model(self, new_shared_layers):
-        # should update state_dict of the shared_layers and the optimizer
         self.shared_layers.load_state_dict(new_shared_layers)
-
-        ####################################################
-        #I am not sure whether the following is necessary or not
-        # param_dict = [{"params": self.shared_layers.parameters()}]
-        # print(param_dict)
-        # if self.specific_layers:
-        #     param_dict += [{"params": self.specific_layers.parameters()}]
-        # self.optimizer = optim.SGD(params=param_dict,
-        #                            lr=self.learning_rate,
-        #                            momentum=self.momentum,
-        #                            weight_decay=self.weight_decay)
-        # self.optimizer.load_state_dict(self.optimizer_state_dict)
 
 def initialize_model(args, device):
     if args.mtl_model:
         print('Using different task specific layer for each user')
         if args.dataset == 'cifar10':
-            if args.model == 'cnn_tutorial':
-                shared_layers = cifar_cnn_pytorchtutorial_shared(input_channels=3)
-                feature_out_dim = shared_layers.feature_out_dim()
-                specific_layers = cifar_cnn_pytorchtutorial_specific(input_channels=feature_out_dim,
-                                                                     output_channels=10)
-            elif args.model == 'cnn_complex':
+            if args.model == 'cnn_complex':
                 shared_layers = cifar_cnn_3conv_shared(input_channels=3)
                 feature_out_dim = shared_layers.feature_out_dim()
                 specific_layers = cifar_cnn_3conv_specific(input_channels=feature_out_dim,
                                                            output_channels=10)
             else:
                 raise ValueError('Model not implemented for CIFAR-10')
-        elif args.dataset == 'femnist':
-            shared_layers = femnist_cnn_leaf_shared(input_channels=1)
-            feature_out_dim = shared_layers.feature_out_dim()
-            specific_layers = femnist_cnn_leaf_specific(input_channels=feature_out_dim,
-                                                        output_channels=62)
         else:
             raise ValueError('The dataset is not implemented for mtl yet')
         if args.cuda:
@@ -139,10 +114,7 @@ def initialize_model(args, device):
     elif args.global_model:
         print('Using same global model for all users')
         if args.dataset == 'cifar10':
-            if args.model == 'cnn_tutorial':
-                shared_layers = cifar_cnn_pytorchtutorial(input_channels=3, output_channels=10)
-                specific_layers = None
-            elif args.model == 'cnn_complex':
+            if args.model == 'cnn_complex':
                 shared_layers = cifar_cnn_3conv(input_channels=3, output_channels=10)
                 specific_layers = None
             elif args.model == 'resnet18':
@@ -159,9 +131,6 @@ def initialize_model(args, device):
                specific_layers = None
             else:
                 raise ValueError('Model not implemented for MNIST')
-        elif args.dataset == 'femnist':
-            shared_layers = femnist_cnn_leaf(input_channels=1, output_channels=62)
-            specific_layers = None
         else:
             raise ValueError('The dataset is not implemented for mtl yet')
         if args.cuda:
@@ -191,10 +160,6 @@ def main():
     device = 'cpu'
     # build dataset for testing
     model = initialize_model(args, device)
-#     build dataset for tesing function
-#     transform = transforms.Compose(
-#         [transforms.ToTensor(),
-#          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),

@@ -13,7 +13,6 @@ import numpy as np
 from tqdm import tqdm
 from models.mnist_cnn import mnist_lenet
 from models.cifar_cnn_3conv_layer import cifar_cnn_3conv
-from models.cifar_cnn_pytorchtutorial import cifar_cnn_pytorchtutorial
 from models.cifar_resnet import ResNet18
 from models.mnist_logistic import LogisticRegression
 import os
@@ -24,13 +23,10 @@ def get_client_class(args, clients):
     client_class_dis = [[],[],[],[],[],[],[],[],[],[]]
     for client in clients:
         train_loader = client.train_loader
-        # print(len(train_loader))
         distribution = show_distribution(train_loader, args)
         label = np.argmax(distribution)
-        # print(label, client.cid)
         client_class.append(label)
         client_class_dis[label].append(client.id)
-    # print(client_class)
     print(client_class_dis)
     return client_class_dis
 
@@ -40,7 +36,6 @@ def get_edge_class(args, edges, clients):
         for cid in edge.cids:
             client = clients[cid]
             train_loader = client.train_loader
-            # print(len(train_loader))
             distribution = show_distribution(train_loader, args)
             label = np.argmax(distribution)
             edge_class[i].append(label)
@@ -114,8 +109,6 @@ def initialize_edges_niid(num_edges, clients, args, client_class_dis):
         if eid == num_edges - 1:
             break
         assigned_clients_idxes = []
-        # label_range = np.arange(start=eid, stop=eid+5, step=1)
-        # label_range = label_range % 10
         label_range = label_ranges[eid]
         for i in range(2):
             for label in label_range:
@@ -195,9 +188,7 @@ def initialize_global_nn(args):
             global_nn = LogisticRegression(input_dim=1, output_dim=10)
         else: raise ValueError(f"Model{args.model} not implemented for mnist")
     elif args.dataset == 'cifar10':
-        if args.model == 'cnn_tutorial':
-            global_nn = cifar_cnn_pytorchtutorial(input_channels=3, output_channels=10)
-        elif args.model == 'cnn_complex':
+        if args.model == 'cnn_complex':
             global_nn = cifar_cnn_3conv(input_channels=3, output_channels=10)
         elif args.model == 'resnet18':
             global_nn = ResNet18()
@@ -219,8 +210,6 @@ def HierFAVG(args):
               f"_model_{args.model}iid{args.iid}edgeiid{args.edgeiid}epoch{args.num_communication}" \
               f"bs{args.batch_size}lr{args.lr}lr_decay_rate{args.lr_decay}" \
               f"lr_decay_epoch{args.lr_decay_epoch}momentum{args.momentum}"
-    print(FILEOUT)
-    print(f'Args parser is {args}')
     writer = SummaryWriter(comment=FILEOUT)
     # Build dataloaders
     train_loaders, test_loaders, v_train_loader, v_test_loader = get_dataloaders(args)
@@ -258,28 +247,10 @@ def HierFAVG(args):
             user_parameters[i].data[:] = initilize_parameters[i].data[:]
 
     # Initialize edge server and assign clients to the edge server
-    # Can be extended here, how to assign the clients to the edge
     edges = []
     cids = np.arange(args.num_clients)
     clients_per_edge = int(args.num_clients / args.num_edges)
     p_clients = [0.0] * args.num_edges
-
-    # Initialize and register the correspond users to the edge server
-    #This is randomly assign the clients
-    # for i in range(args.num_edges):
-    #     #Randomly select clients and assign them to the
-    #     selected_cids = np.random.choice(cids, clients_per_edge, replace=False)
-    #     cids = list (set(cids) - set(selected_cids))
-    #     edges.append(Edge(id = i,
-    #                       cids = selected_cids,
-    #                       shared_layers = copy.deepcopy(clients[0].model.shared_layers)))
-    #     [edges[i].client_register(clients[cid]) for cid in selected_cids]
-    #     edges[i].all_trainsample_num = sum(edges[i].sample_registration.values())
-    #     p_clients[i] = [sample / float(edges[i].all_trainsample_num) for sample in
-    #             list(edges[i].sample_registration.values())]
-    #     edges[i].refresh_edgeserver()
-
-    # Now we assign the one-class clients to each server, so that the edges are iid or non-iid
 
     if args.iid == -2:
         if args.edgeiid == 1:
@@ -294,7 +265,8 @@ def HierFAVG(args):
                                                      clients=clients,
                                                      args=args,
                                                      client_class_dis=client_class_dis)
-    else: # This is randomly assign the clients to edges
+    else:
+        # This is randomly assign the clients to edges
         for i in range(args.num_edges):
             #Randomly select clients and assign them
             selected_cids = np.random.choice(cids, clients_per_edge, replace=False)
@@ -307,10 +279,8 @@ def HierFAVG(args):
             p_clients[i] = [sample / float(edges[i].all_trainsample_num) for sample in
                     list(edges[i].sample_registration.values())]
             edges[i].refresh_edgeserver()
-    # get_edge_class(args, edges, clients)
     # Initialize cloud server
     cloud = Cloud(shared_layers=copy.deepcopy(clients[0].model.shared_layers))
-
     # First the clients report to the edge server their training samples
     [cloud.edge_register(edge=edge) for edge in edges]
     p_edge = [sample / sum(cloud.sample_registration.values()) for sample in
@@ -373,25 +343,6 @@ def HierFAVG(args):
         for edge in edges:
             cloud.send_to_edge(edge)
 
-
-        # Notice that the following wont happen in practice
-        # It is only for testing the accuracy after aggregated model
-        ####################################
-        # NOTIFICATION:!!!!!
-        # If using the following code the calculate the test accuracy, then YOU MUST SET model.train(False)!
-        # correct_all_cloud = 0.0
-        # total_all_cloud = 0.0
-        # for edge in edges:
-        #     correct, total = all_clients_test(edge, clients, edge.cids, device)
-        #     correct_all_cloud += correct
-        #     total_all_cloud += total
-        # avg_acc = correct_all_cloud / total_all_cloud
-        # print(f'Using all the clients {avg_acc} ')
-        # writer.add_scalar(f'All_Avg_Test_Acc_cloudagg',
-        #                   avg_acc,
-        #                   num_comm + 1)
-
-        # Use the virtual testloader for testing
         global_nn.load_state_dict(state_dict = copy.deepcopy(cloud.shared_state_dict))
         global_nn.train(False)
         correct_all_v, total_all_v = fast_all_clients_test(v_test_loader, global_nn, device)

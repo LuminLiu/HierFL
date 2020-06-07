@@ -183,6 +183,7 @@ def niid_esize_split_test(dataset, args, kwargs, split_pattern,  is_shuffle = Fa
                                      **kwargs
                                      )
     return data_loaders, None
+
 def niid_esize_split_train_large(dataset, args, kwargs, is_shuffle = True):
     data_loaders = [0]* args.num_clients
     num_shards = args.classes_per_client * args.num_clients
@@ -190,15 +191,12 @@ def niid_esize_split_train_large(dataset, args, kwargs, is_shuffle = True):
     idx_shard = [i for i in range(num_shards)]
     dict_users = {i: np.array([]) for i in range(args.num_clients)}
     idxs = np.arange(num_shards * num_imgs)
-#     no need to judge train ans test here
     labels = dataset.train_labels
     idxs_labels = np.vstack((idxs, labels))
     idxs_labels = idxs_labels[:, idxs_labels[1,:].argsort()]
     idxs = idxs_labels[0,:]
     idxs = idxs.astype(int)
-#     divide and assign
-#     and record the split pattern
-#     The split pattern fot this funciton is the class
+
     split_pattern = {i: [] for i in range(args.num_clients)}
     for i in range(args.num_clients):
         rand_set = np.random.choice(idx_shard, 2, replace= False)
@@ -218,7 +216,6 @@ def niid_esize_split_train_large(dataset, args, kwargs, is_shuffle = True):
 
 def niid_esize_split_test_large(dataset, args, kwargs, split_pattern, is_shuffle = False ):
     """
-
     :param dataset: test dataset
     :param args:
     :param kwargs:
@@ -339,31 +336,7 @@ def get_mnist(dataset_root, args):
 def get_cifar10(dataset_root, args):
     is_cuda = args.cuda
     kwargs = {'num_workers': 1, 'pin_memory':True} if is_cuda else{}
-    #the following transform may be suitable for resnet
-    """
-    transform=transforms.Compose([
-                            transforms.RandomCrop(32, padding=4),
-                            transforms.RandomHorizontalFlip(),
-                            transforms.ToTensor(),
-                            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261)),
-                        ])
-    """
-    if args.model == 'cnn_tutorial':
-        transform_train = transforms.Compose([transforms.ToTensor(),
-                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-        transform_test = transforms.Compose([transforms.ToTensor(),
-                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-        # transform_train = transforms.Compose([
-        #     transforms.RandomCrop(32, padding=4),
-        #     transforms.RandomHorizontalFlip(),
-        #     transforms.ToTensor(),
-        #     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        # ])
-        # transform_test = transforms.Compose([
-        #     transforms.ToTensor(),
-        #     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        # ])
-    elif args.model == 'cnn_complex':
+    if args.model == 'cnn_complex':
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
@@ -373,20 +346,6 @@ def get_cifar10(dataset_root, args):
         transform_test = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ])
-    elif args.model == 'cnn_tf':
-        transform_train = transforms.Compose([
-                    transforms.RandomCrop(24),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ColorJitter(brightness = 63, contrast = 0.8),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.4914,0.4822,0.4465),(0.2023,0.1994,0.2010))
-        ])
-        #Note the other transform computations cannot be applied to testset!
-        transform_test = transforms.Compose([
-                    transforms.CenterCrop(24),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.4914,0.4822,0.4465),(0.2023,0.1994,0.2010))
         ])
     elif args.model == 'resnet18':
         transform_train = transforms.Compose([
@@ -405,39 +364,12 @@ def get_cifar10(dataset_root, args):
                         download = True, transform = transform_train)
     test = datasets.CIFAR10(os.path.join(dataset_root,'cifar10'), train = False,
                         download = True, transform = transform_test)
-    #the actual batch_size may need to change.... Depend on the actual gradient...
-    #originally written to get the gradient of the whole dataset
-    #but now it seems to be able to improve speed of getting accuracy of virtual sequence
     v_train_loader = DataLoader(train, batch_size = args.batch_size,
                                 shuffle = True, **kwargs)
     v_test_loader = DataLoader(test, batch_size = args.batch_size,
                                 shuffle = False, **kwargs)
-    # add additional conditon here
-    if args.iid == -3:
-    #     new niid, train and the test follows the same pattern
-        train_loaders, split_pattern = niid_esize_split_train(dataset=train,
-                                                              args=args,
-                                                              kwargs=kwargs,
-                                                              is_shuffle=True)
-        test_loaders, _ = niid_esize_split_test(dataset=test,
-                                             args=args,
-                                             kwargs= kwargs,
-                                             split_pattern=split_pattern,
-                                             is_shuffle=False)
-    elif args.iid == -4:
-        train_loaders, split_pattern = niid_esize_split_train_large(dataset=train,
-                                                              args=args,
-                                                              kwargs=kwargs,
-                                                              is_shuffle=True)
-        test_loaders, _ = niid_esize_split_test_large(dataset=test,
-                                                args=args,
-                                                kwargs=kwargs,
-                                                split_pattern=split_pattern,
-                                                is_shuffle=False)
-        print(f'split patter{split_pattern}')
-    else:
-        train_loaders = split_data(train, args, kwargs, is_shuffle = True)
-        test_loaders = split_data(test,  args, kwargs, is_shuffle = False)
+    train_loaders = split_data(train, args, kwargs, is_shuffle = True)
+    test_loaders = split_data(test,  args, kwargs, is_shuffle = False)
     return  train_loaders, test_loaders, v_train_loader, v_test_loader
 
 def show_distribution(dataloader, args):
